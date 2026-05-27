@@ -5,6 +5,35 @@
 #include <string>
 #include <cstring>
 
+
+template<typename CharT>
+CharT toLower(CharT ch) {
+        if constexpr (std::is_same_v<CharT, char>) {
+                return static_cast<CharT>(std::tolower(static_cast<unsigned char>(ch)));
+        } else if constexpr (std::is_same_v<CharT, wchar_t>) {
+                return static_cast<CharT>(std::towlower(ch));
+        } else {
+                static_assert(sizeof(CharT) == 0, "Unsupported character type");
+        }
+}
+
+template<typename StringT>
+bool find(const StringT& text, const StringT& search) {
+        if (search.empty()) return true;
+        if (text.size() < search.size()) return false;
+
+        auto it = std::search(
+                text.begin(), text.end(),
+                search.begin(), search.end(),
+                [](auto ch1, auto ch2) {
+                return toLower(ch1) == toLower(ch2);
+                }
+        );
+
+        return it != text.end();
+}
+
+
 int main(int argc, char* argv[]) {
 
         bool filter = (argc >= 2);
@@ -60,7 +89,7 @@ int main(int argc, char* argv[]) {
                                 
                                 totalProcesses++;
                         } else {
-                                if (exeName == filterExeName) {
+                                if (find(exeName, filterExeName)) {
                                         std::cout << std::left
                                                 << std::setw(14)
                                                 << processEntry.th32ProcessID
