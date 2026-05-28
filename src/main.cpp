@@ -4,6 +4,8 @@
 #include <iomanip>
 #include <string>
 #include <cstring>
+#include <tchar.h>
+#include <algorithm>
 
 
 template<typename CharT>
@@ -13,7 +15,11 @@ CharT toLower(CharT ch) {
         } else if constexpr (std::is_same_v<CharT, wchar_t>) {
                 return static_cast<CharT>(std::towlower(ch));
         } else {
-                static_assert(sizeof(CharT) == 0, "Unsupported character type");
+                static_assert(
+                        std::is_same_v<CharT, char> ||
+                        std::is_same_v<CharT, wchar_t>,
+                        "Unsupported character type"
+                        );
         }
 }
 
@@ -34,9 +40,35 @@ bool find(const StringT& text, const StringT& search) {
 }
 
 
+bool KillProcessById(DWORD processId) {
+    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, processId);
+    if (hProcess == NULL) {
+        std::cerr << "Failed to open process. Error: " << GetLastError() << "\n";
+        return false;
+    }
+
+    BOOL result = TerminateProcess(hProcess, 1);
+    CloseHandle(hProcess);
+
+    if (!result) {
+        std::cerr << "Failed to terminate process. Error: " << GetLastError() << "\n";
+        return false;
+    }
+
+    return true;
+}
+
+
 int main(int argc, char* argv[]) {
 
         bool filter = (argc >= 2);
+
+        bool kill = false;
+        for (int i = 2; i < argc; i++) {
+                if (std::string(argv[i]) == "--kill") {
+                        kill = true;
+                }
+        }
 
         HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if (snapshot == INVALID_HANDLE_VALUE) {
@@ -69,37 +101,56 @@ int main(int argc, char* argv[]) {
                         << std::setw(14)
                         << "PID"
                         << std::setw(42)
-                        << "Process"
-                        << "\n---------------------------------------------------\n";
+                        << "Process";
+
+                if (kill) {
+                        std::cout << "Status";
+                }
+
+                std::cout << "\n--------------------------------------------------------------------------------\n";
 
                 do {
-                        #ifdef UNICODE
-                                std::wstring exeName(processEntry.szExeFile);
-                        #else
-                                std::string exeName(processEntry.szExeFile);
-                        #endif
 
-                        if (!filter) {
-                                std::cout << std::left
-                                        << std::setw(14)
-                                        << processEntry.th32ProcessID
-                                        << std::setw(42)
-                                        << processEntry.szExeFile
-                                        << "\n";
-                                
-                                totalProcesses++;
+                #ifdef UNICODE
+                        std::wstring exeName(processEntry.szExeFile);
+                #else
+                        std::string exeName(processEntry.szExeFile);
+                #endif
+
+                bool matches = !filter || find(exeName, filterExeName);
+
+                if (!matches) {
+                        continue;
+                }
+
+                bool killed = false;
+
+                if (kill) {
+                        if (processEntry.th32ProcessID == GetCurrentProcessId()) {
+                                std::cout << "[SKIPPED SELF]\n";
                         } else {
-                                if (find(exeName, filterExeName)) {
-                                        std::cout << std::left
-                                                << std::setw(14)
-                                                << processEntry.th32ProcessID
-                                                << std::setw(42)
-                                                << processEntry.szExeFile
-                                                << "\n";
-                                        
-                                        totalProcesses++;
-                                }
+                                killed = KillProcessById(processEntry.th32ProcessID);
                         }
+                }
+
+                std::cout << std::left
+                        << std::setw(14)
+                        << processEntry.th32ProcessID
+                        << std::setw(42)
+                        << processEntry.szExeFile;
+
+                if (kill) {
+
+                        if (killed) {
+                                std::cout << "[TERMINATED]";
+                        } else {
+                                std::cout << "[FAILED]";
+                        }
+                }
+
+                std::cout << '\n';
+
+                totalProcesses++;
 
                 } while (Process32Next(snapshot, &processEntry));
 

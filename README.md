@@ -1,22 +1,24 @@
 # Process Monitor
 
-Windows process monitoring utility written in C++ using WinAPI.
+A lightweight Windows process monitoring utility written in C++ using WinAPI.
 
 ---
 
 ## Features
 
-- Lists running processes
-- Displays process IDs (PID)
-- Process name filtering
+- List running processes
+- Display process IDs (PID)
+- Filter processes by name
+- Case-insensitive search
+- Optional process termination
 - Unicode support
-- Formatted console output
+- Clean formatted console output
 
 ---
 
 ## Example Output
 
-```text
+```
 PID           Process
 ---------------------------------------------------
 0             [System Process]
@@ -29,12 +31,17 @@ Total processes: 4
 
 ---
 
-## Filtering
-
-Show only a specific process:
+## Usage
+**Show all processes**
 
 ```
-monitor.exe chrome.exe
+monitor.exe
+```
+
+**Filter processes**
+
+```
+monitor.exe chrome
 ```
 
 Example:
@@ -49,7 +56,20 @@ PID           Process
 Total processes: 3
 ```
 
----
+**Kill matching processes**
+
+```
+monitor.exe chrome.exe --kill
+```
+
+Example:
+
+```
+PID           Process                                  Status
+---------------------------------------------------------------------------------
+5820          chrome.exe                              [TERMINATED]
+7124          chrome.exe                              [TERMINATED]
+```
 
 ## Build
 
